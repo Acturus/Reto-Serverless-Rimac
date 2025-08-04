@@ -1,0 +1,560 @@
+org: artacuri
+app: appointment
+service: appointment
+useDotenv: true
+
+provider:
+  name: aws
+  region: ${env:AWS_REGION}
+  runtime: nodejs20.x
+  iam:
+    role:
+      statements:
+        # Permisos DynamoDB
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource:
+            - Fn::GetAtt: [CatalogsTable, Arn]
+            - Fn::GetAtt: [AppointmentsTable, Arn]
+        # Permiso para publicar en SNS
+        - Effect: Allow
+          Action:
+            - sns:Publish
+          Resource:
+            - arn:aws:sns:${self:provider.region}:${aws:accountId}:appointment-topic
+        # Permiso para el Event Bus
+        - Effect: Allow
+          Action:
+            - events:PutEvents
+          Resource:
+            - arn:aws:events:${self:provider.region}:${aws:accountId}:event-bus/appointments-events
+  environment:
+    CATALOGS_TABLE: ${env:CATALOGS_TABLE}
+    APPOINTMENTS_TABLE: ${env:APPOINTMENTS_TABLE}
+    SNS_TOPIC_ARN: !Ref AppointmentSNSTopic
+  httpApi:
+    cors:
+      allowedOrigins:
+        - '*'
+      allowedHeaders:
+        - '*'
+      allowedMethods:
+        - GET
+        - POST
+        - OPTIONS
+
+functions:
+  getCentersByInsuredId:
+    handler: src/catalog/index.getCentersByInsuredIdHandler
+    events:
+      - httpApi:
+          path: /catalog/medical-centers/{insuredId}
+          method: get
+          documentation:
+            tags:
+              - Catalog Lambda
+            summary: "Obtener centros médicos por código de asegurado"
+            description: "Devuelve la lista de centros médicos disponibles para un asegurado específico."
+            pathParams:
+              - name: insuredId
+                description: "Código del asegurado (5 dígitos, con ceros a la izquierda)"
+                required: true
+                schema:
+                  type: string
+                  pattern: '^\d{5}$'
+                  example: "00001"
+            responseHeaders: []
+            methodResponses:
+              - statusCode: 200
+                responseBody:
+                  description: "Respuesta exitosa con la lista de centros médicos"
+                responseModels:
+                  "application/json": MedicalCenterList
+              - statusCode: 400
+                responseBody:
+                  description: "Request inválido o error de servidor"
+                responseModels:
+                  "application/json": ErrorResponse
+              - statusCode: 404
+                responseBody:
+                  description: "No se encontraron centros médicos disponibles"
+                responseModels:
+                  "application/json": NotFound
+
+  getDoctorsByCenterAndSpecialty:
+    handler: src/catalog/index.getDoctorsByCenterAndSpecialtyHandler
+    events:
+      - httpApi:
+          path: /catalog/doctors
+          method: get
+          documentation:
+            tags:
+              - Catalog Lambda
+            summary: "Lista doctores de un centro y especialidad"
+            description: "Devuelve la lista de doctores por centro médico y especialidad."
+            queryParams:
+              - name: centerId
+                description: "ID del centro médico"
+                required: true
+                in: query
+                schema:
+                  type: string
+                  example: "REBG"
+              - name: specialtyId
+                description: "ID de la especialidad médica"
+                required: true
+                in: query
+                schema:
+                  type: string
+                  example: "ONCO"
+            methodResponses:
+              - statusCode: 200
+                responseBody:
+                  description: "Lista de doctores"
+                responseModels:
+                  "application/json": DoctorList
+              - statusCode: 400
+                responseBody:
+                  description: "Error en los parámetros de búsqueda"
+                responseModels:
+                  "application/json": ErrorResponse
+              - statusCode: 500
+                responseBody:
+                  description: "Error interno"
+                responseModels:
+                  "application/json": UnexpectedResponse
+  
+  createAppointment:
+    handler: src/appointment/index.createAppointmentHandler
+    events:
+      - httpApi:
+          path: /appointment
+          method: post
+          documentation:
+            tags:
+              - Appointment Lambda
+            summary: "Crea una cita médica"
+            description: "Crea una cita para un asegurado. Estado inicial pending. Procesamiento asíncrono."
+            requestBody:
+              description: "Datos de la cita médica"
+            requestModels:
+              "application/json": CreateAppointment
+            methodResponses:
+              - statusCode: 201
+                responseBody:
+                  description: "Cita creada correctamente"
+                responseModels:
+                  "application/json": AppointmentCreated  
+              - statusCode: 400
+                responseBody:
+                  description: "Error de validación"
+                responseModels:
+                  "application/json": ErrorResponse
+              - statusCode: 500
+                responseBody:
+                  description: "Error inesperado"
+                responseModels:
+                  "application/json": UnexpectedResponse
+
+  getAppointmentsByInsuredId:
+    handler: src/appointment/index.getAppointmentsByInsuredIdHandler
+    events:
+      - httpApi:
+          path: /appointment/insured/{insuredId}
+          method: get
+          documentation:
+            tags:
+              - Appointment Lambda
+            summary: "Obtiene todas las citas por código de asegurado"
+            description: "Devuelve la lista de citas médicas asociadas a un asegurado."
+            pathParams:
+              - name: insuredId
+                description: "Código de asegurado (5 dígitos, con ceros a la izquierda)"
+                required: true
+                schema:
+                  type: string
+                  pattern: '^\d{5}$'
+                  example: "00001"
+            methodResponses:
+              - statusCode: 200
+                responseBody:
+                  description: "Lista de citas del asegurado"
+                responseModels:
+                  "application/json": AppointmentList
+              - statusCode: 400
+                responseBody:
+                  description: "Error de validación (ej. parámetro no enviado)"
+                responseModels:
+                  "application/json": ErrorResponse
+              - statusCode: 404
+                responseBody:
+                  description: "No se encontraron citas"
+                responseModels:
+                  "application/json": NotFound
+  
+  appointment_pe:
+    handler: src/appointment/handlers/AppointmentPE.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt: [SQSPE, Arn]
+    environment:
+      MYSQL_HOST: ${env:MYSQL_PE_HOST}
+      MYSQL_USER: ${env:MYSQL_PE_USER}
+      MYSQL_PASS: ${env:MYSQL_PE_PASS}
+      MYSQL_DB: ${env:MYSQL_PE_DB}
+      EVENT_BUS_NAME: ${env:EVENT_BUS_NAME}
+
+  appointment_cl:
+    handler: src/appointment/handlers/AppointmentCL.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt: [SQSCL, Arn]
+    environment:
+      MYSQL_HOST: ${env:MYSQL_CL_HOST}
+      MYSQL_USER: ${env:MYSQL_CL_USER}
+      MYSQL_PASS: ${env:MYSQL_CL_PASS}
+      MYSQL_DB: ${env:MYSQL_CL_DB}
+      EVENT_BUS_NAME: ${env:EVENT_BUS_NAME}
+
+  appointment_state_updater:
+    handler: src/appointment/handlers/AppointmentStateUpdater.handler
+    timeout: ${env:STATE_UPDATE_LAMBDA_TIMEOUT, 4}
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt: [AppointmentStateSQS, Arn]
+    environment:
+      STATE_UPDATE_DELAY_SECONDS: ${env:STATE_UPDATE_DELAY_SECONDS, 0}
+      STATE_UPDATE_LAMBDA_TIMEOUT: ${env:STATE_UPDATE_LAMBDA_TIMEOUT, 0}
+
+resources:
+  Resources:
+    AppointmentsEventBus:
+      Type: AWS::Events::EventBus
+      Properties:
+        Name: ${env:EVENT_BUS_NAME}
+    # SNS Topic principal para agendamientos
+    AppointmentSNSTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: appointment-topic
+
+    # SQS para Perú
+    SQSPE:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: sqs_pe
+
+    # SQS para Chile
+    SQSCL:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: sqs_cl
+
+    # Permitir que SNS envíe mensajes a SQS_PE
+    SQSPEPolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues:
+          - !Ref SQSPE
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal: "*"
+              Action: "sqs:SendMessage"
+              Resource: !GetAtt SQSPE.Arn
+              Condition:
+                ArnEquals:
+                  "aws:SourceArn": !Ref AppointmentSNSTopic
+
+    # Permitir que SNS envíe mensajes a SQS_CL
+    SQSCLPolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues:
+          - !Ref SQSCL
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal: "*"
+              Action: "sqs:SendMessage"
+              Resource: !GetAtt SQSCL.Arn
+              Condition:
+                ArnEquals:
+                  "aws:SourceArn": !Ref AppointmentSNSTopic
+
+    # Suscripción SQS_PE con filtro countryISO=PE
+    SQSPESubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        TopicArn: !Ref AppointmentSNSTopic
+        Protocol: sqs
+        Endpoint: !GetAtt SQSPE.Arn
+        FilterPolicy:
+          countryISO:
+            - "PE"
+
+    # Suscripción SQS_CL con filtro countryISO=CL
+    SQSCLSubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        TopicArn: !Ref AppointmentSNSTopic
+        Protocol: sqs
+        Endpoint: !GetAtt SQSCL.Arn
+        FilterPolicy:
+          countryISO:
+            - "CL"
+
+    CatalogsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: catalogs
+        AttributeDefinitions:
+          - AttributeName: PK
+            AttributeType: S
+          - AttributeName: SK
+            AttributeType: S
+        KeySchema:
+          - AttributeName: PK
+            KeyType: HASH
+          - AttributeName: SK
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+    
+    AppointmentsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: appointments
+        AttributeDefinitions:
+          - AttributeName: PK
+            AttributeType: S
+          - AttributeName: SK
+            AttributeType: S
+        KeySchema:
+          - AttributeName: PK
+            KeyType: HASH
+          - AttributeName: SK
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+  
+    AppointmentStateSQS:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: appointment-state-sqs
+
+    AppointmentStateRule:
+      Type: AWS::Events::Rule
+      Properties:
+        EventBusName: !Ref AppointmentsEventBus
+        EventPattern:
+          source:
+            - medical-appointment-pe
+            - medical-appointment-cl
+          detail-type:
+            - AppointmentCompleted
+        Targets:
+          - Arn: !GetAtt AppointmentStateSQS.Arn
+            Id: "AppointmentStateSQS"
+    
+    AppointmentStateSQSPolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues:
+          - !Ref AppointmentStateSQS
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: events.amazonaws.com
+              Action: sqs:SendMessage
+              Resource: !GetAtt AppointmentStateSQS.Arn
+
+plugins:
+  - serverless-finch
+  - serverless-openapi-documenter
+
+custom:
+  client:
+    bucketName: ${env:WEBAPP_BUCKET}
+    distributionFolder: static
+    indexDocument: index.html
+    errorDocument: error.html
+  
+  documentation:
+    title: Medical Appointment API
+    version: "1"
+    description: API para gestión de citas médicas 
+    servers:
+      url: https://www.linkedin.com/in/artacuri/
+    models:
+      - name: CreateAppointment
+        contentType: application/json
+        schema:
+          type: object
+          required:
+            - insuredId
+            - countryISO
+            - schedule
+          properties:
+            insuredId:
+              type: string
+              example: "00001"
+              pattern: "^[0-9]{5}$"
+            countryISO:
+              type: string
+              example: "PE"
+            schedule:
+              type: object
+              required: [date, centerId, specialtyId, medicId, scheduleId]
+              properties:
+                date:
+                  type: string
+                  format: date-time
+                  example: "2025-08-29T15:00:00Z"
+                centerId:
+                  type: string
+                  example: "REBG"
+                specialtyId:
+                  type: string
+                  example: "TRAS"
+                medicId:
+                  type: string
+                  example: "TRAS_REBG_PE_02"
+                scheduleId:
+                  type: integer
+                  example: 77511
+      - name: AppointmentCreated
+        contentType: application/json
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+              example: "Su cita registró con éxito con el código: 01K1SEQJXKCG01C58D6M8MR88N"
+      - name: MedicalCenter
+        contentType: application/json
+        schema:
+          type: object
+          properties:
+            id:
+              type: string
+              example: "REBG"
+            name:
+              type: string
+              example: "Edgardo Rebagliati Martins"
+            countryISO:
+              type: string
+              example: "PE"
+            type:
+              type: string
+              example: "Público EsSalud"
+            specialties:
+              type: array
+              items:
+                type: string
+              example: ["CARD", "ONCO"]
+      - name: MedicalCenterList
+        contentType: application/json
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/MedicalCenter"
+      - name: Doctor
+        contentType: application/json
+        schema:
+          type: object
+          properties:
+            id: { type: string, example: "ONCO_REBG_PE_02" }
+            name: { type: string, example: "Lucía" }
+            surname: { type: string, example: "Vargas" }
+            gender: { type: string, enum: ["M", "F"], example: "F" }
+            specialty: { type: string, example: "Oncología" }
+            specialtyId: { type: string, example: "ONCO" }
+            centerId: { type: string, example: "REBG" }
+            countryISO: { type: string, example: "PE" }
+      - name: DoctorList
+        contentType: application/json
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/Doctor"
+      - name: Appointment
+        contentType: application/json
+        schema:
+          type: object
+          properties:
+            appointmentId:
+              type: string
+              example: "01K1S471KN35XPCXHANTZ078G3"
+            insuredId:
+              type: string
+              example: "00001"
+            doctorId:
+              type: string
+              example: "OBST_LOAY_PE_01"
+            medicalCenterId:
+              type: string
+              example: "LOAY"
+            specialtyId:
+              type: string
+              example: "OBST"
+            date:
+              type: string
+              format: date-time
+              example: "2025-08-15T08:30:00Z"
+            state:
+              type: string
+              example: "pending"
+            countryISO:
+              type: string
+              example: "PE"
+      - name: AppointmentList
+        contentType: application/json
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/Appointment"
+      - name: ErrorResponse
+        contentType: application/json
+        schema:
+          type: object
+          properties:
+            error:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: "Mensaje de error según el endpoint"
+      - name: NotFound
+        contentType: application/json
+        schema:
+          type: object
+          properties:
+            error:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: "No se encontró el recurso"
+      - name: UnexpectedResponse
+        contentType: application/json
+        schema:
+          type: object
+          properties:
+            error:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: "Error desconocido"

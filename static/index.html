@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Appointment</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sakura.css/css/sakura.min.css" type="text/css">
+    <link rel="stylesheet" href="css/style.css" type="text/css">
+</head>
+<body>
+    <header>
+        <h1>Medical Appointment</h1>
+    </header>
+    <main>
+        <section>
+            <h4>Bienvenido a la aplicación de citas médicas</h4>
+            <form action="javascript:" id="search">
+                <label for="insuredCode">Código de asegurado:</label>
+                <input type="text" id="insuredCode" name="insuredCode" placeholder="00007" required>
+                <button type="submit">Iniciar</button>
+            </form>
+        </section>
+        <section class="hidden" id="reserve">
+            <form action="javascript:">
+                <h4 id="country">Centros médicos de <u>🙊</u> disponibles</h4>
+                <input type="hidden" name="insuredId" id="insuredId">
+                <input type="hidden" name="countryISO" id="countryISO">
+                <input type="hidden" name="date" id="appointmentDate">
+                <div>
+                    <label for="medicalCenter">Centro médico:</label>
+                    <select id="medicalCenter" name="centerId" required></select>
+                </div>
+                <div>
+                    <label for="speciality">Especialidad:</label>
+                    <select id="speciality" name="specialtyId" required disabled></select>
+                </div>
+                <div>
+                    <label for="doctor">Doctor(a):</label>
+                    <select id="doctor" name="medicId" required disabled></select>
+                </div>
+                <div>
+                    <label for="eventDate">Fecha:</label>
+                    <input type="date" id="eventDate" required onkeypress="return false" onfocus="this.showPicker()">
+                </div>
+                <div>
+                    <label for="eventTime">Hora:</label>
+                    <select id="eventTime" required disabled></select>
+                </div>
+                <div>
+                    <button type="submit">Reservar cita</button>
+                </div>
+            </form>
+        </section>
+    </main>
+    <script src="js/specialities.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/script.js"></script>
+</body>
+</html>

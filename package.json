@@ -1,0 +1,41 @@
+{
+  "name": "appointment",
+  "version": "1.0.0",
+  "description": "A crazy technical challenge for Rimac Seguros",
+  "author": {
+    "name": "Arturo Tacuri",
+    "email": "ar.tacuri@gmail.com"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.585.0",
+    "@aws-sdk/client-eventbridge": "^3.859.0",
+    "@aws-sdk/client-sns": "^3.858.0",
+    "@aws-sdk/lib-dynamodb": "^3.585.0",
+    "dotenv": "^17.2.0",
+    "mysql2": "^3.14.3",
+    "serverless-http": "^3.2.0",
+    "ulid": "^3.0.1"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.152",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.1.0",
+    "jest": "^30.0.5",
+    "serverless-finch": "^4.0.4",
+    "serverless-openapi-documenter": "^0.0.114",
+    "ts-jest": "^29.4.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  },
+  "scripts": {
+    "seed:catalog": "ts-node src/catalog/infrastructure/db/seeders/runSeeders.ts",
+    "deploy:seed": "serverless deploy && npm run seed:catalog",
+    "set:apiurl": "node cmd/set-api-url.js",
+    "deploy:static": "npm run set:apiurl && serverless client deploy",
+    "deploy:swagger": "npm run set:apiurl && serverless client deploy --config serverless-swagger.yml",
+    "deploy:sites": "npm run deploy:swagger && serverless client deploy",
+    "deploy:full": "npm run deploy:seed && npm run deploy:sites",
+    "deploy:clear": "serverless remove",
+    "test": "npx jest"
+  }
+}

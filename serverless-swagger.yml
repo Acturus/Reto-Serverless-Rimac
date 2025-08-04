@@ -1,0 +1,12 @@
+service: swagger-static-site
+useDotenv: true
+
+plugins:
+  - serverless-finch
+
+custom:
+  client:
+    bucketName: ${env:SWAGGER_BUCKET}
+    distributionFolder: openapi
+    indexDocument: index.html
+    errorDocument: error.html
