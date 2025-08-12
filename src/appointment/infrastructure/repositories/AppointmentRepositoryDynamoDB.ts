@@ -1,5 +1,5 @@
-import { DynamoDBDocumentClient, PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBClient, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 import { AppointmentEntity } from "../../domain/entities/AppointmentEntity";
 import {IAppointmentRepository} from "../../domain/repositories/AppointmentRepository";
 import { UpdateAppointmentDTO } from "../../application/dtos/UpdateAppointmentDto";
@@ -73,6 +73,6 @@ export class AppointmentRepositoryDynamoDB implements IAppointmentRepository{
       ExpressionAttributeValues: { ":newState": { S: "completed" } }
     };
     
-    await this.client.send(new UpdateCommand(params));
+    await this.client.send(new UpdateItemCommand(params));
   }
 }
