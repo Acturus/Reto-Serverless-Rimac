@@ -1,4 +1,4 @@
-export interface MySQLConfigEntity {
+export interface MySQLConfig {
     host: string;
     port?: number;
     user: string;

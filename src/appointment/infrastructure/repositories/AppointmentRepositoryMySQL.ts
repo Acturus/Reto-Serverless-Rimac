@@ -1,12 +1,12 @@
 import mysql, {Connection} from "mysql2/promise";
 import { AppointmentEntity } from "../../domain/entities/AppointmentEntity";
-import { MySQLConfigEntity } from "../../domain/entities/MySQLConfigEntity";
+import { MySQLConfig } from "../types/MySQLConfig";
 
 export class AppointmentRepositoryMySQL {
-  private config: MySQLConfigEntity;
+  private config: MySQLConfig;
   private conn!: Connection;
 
-  constructor(config: MySQLConfigEntity) {
+  constructor(config: MySQLConfig) {
     this.config = config;
   }
 

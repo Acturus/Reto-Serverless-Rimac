@@ -2,12 +2,12 @@ import { ulid } from "ulid";
 import { AppointmentEntity } from "../../domain/entities/AppointmentEntity";
 import { CreateAppointmentDTO } from "../dtos/CreateAppointmentDto";
 import { IAppointmentRepository } from "../../domain/repositories/AppointmentRepository";
-import { SNSPublisher } from "../../../common/SNSPublisher";
+import { PublisherInterface } from "../../../common/interfaces/PublisherInterface";
 
 export class CreateAppointmentUseCase {
   constructor(
     private readonly repo: IAppointmentRepository,
-    private readonly snsPublisher: SNSPublisher
+    private readonly publisher: PublisherInterface
   ) {}
 
   private allowedCountries = ["PE", "CL"];
@@ -51,7 +51,7 @@ export class CreateAppointmentUseCase {
       // Se guarda la cita en el repositorio
       await this.repo.save(appointment);
       // Se publica la cita
-      await this.snsPublisher.publishAppointment(appointment);
+      await this.publisher.publishAppointment(appointment);
       return appointment.appointmentId;
     }
     catch (error: any) {

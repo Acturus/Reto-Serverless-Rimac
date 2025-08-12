@@ -1,6 +1,8 @@
 import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
+import { PublisherInterface } from "./interfaces/PublisherInterface";
+import { AppointmentEntity } from "../appointment/domain/entities/AppointmentEntity";
 
-export class SNSPublisher {
+export class SNSPublisher implements PublisherInterface {
   private snsClient: SNSClient;
   private topicArn: string;
 
@@ -9,8 +11,10 @@ export class SNSPublisher {
     this.topicArn = topicArn;
   }
 
-  async publishAppointment(appointment: any) {
+  async publishAppointment(appointment: AppointmentEntity) {
+
     const { countryISO } = appointment;
+
     await this.snsClient.send(new PublishCommand({
       TopicArn: this.topicArn,
       Message: JSON.stringify(appointment),
@@ -21,5 +25,6 @@ export class SNSPublisher {
         }
       }
     }));
+    
   }
 }
