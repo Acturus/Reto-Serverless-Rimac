@@ -33,14 +33,14 @@ describe("GetAppointmentsByInsuredIdUseCase", () => {
 
   beforeEach(() => {
     repo = {
-      getByInsuredId: jest.fn().mockResolvedValue(appointments),
+      get: jest.fn().mockResolvedValue(appointments),
     } as any;
     useCase = new GetAppointmentsByInsuredIdUseCase(repo);
   });
 
   it("retorna las citas para un insuredId válido", async () => {
     const result = await useCase.execute(insuredId);
-    expect(repo.getByInsuredId).toHaveBeenCalledWith(insuredId);
+    expect(repo.get).toHaveBeenCalledWith(insuredId);
     expect(result).toEqual(appointments);
   });
 
@@ -51,7 +51,7 @@ describe("GetAppointmentsByInsuredIdUseCase", () => {
   });
 
   it("retorna un array vacío si el insuredId no tiene citas", async () => {
-    repo.getByInsuredId.mockResolvedValueOnce([]);
+    repo.get.mockResolvedValueOnce([]);
     const result = await useCase.execute(insuredId);
     expect(result).toEqual([]);
   });

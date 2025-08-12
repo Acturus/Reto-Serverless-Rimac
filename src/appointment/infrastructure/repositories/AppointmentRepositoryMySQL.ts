@@ -1,13 +1,21 @@
 import mysql, {Connection} from "mysql2/promise";
 import { AppointmentEntity } from "../../domain/entities/AppointmentEntity";
 import { MySQLConfig } from "../types/MySQLConfig";
+import { IAppointmentRepository } from "../../domain/repositories/AppointmentRepository";
+import { UpdateAppointmentDTO } from "../../application/dtos/UpdateAppointmentDto";
 
-export class AppointmentRepositoryMySQL {
+export class AppointmentRepositoryMySQL implements IAppointmentRepository {
   private config: MySQLConfig;
   private conn!: Connection;
 
   constructor(config: MySQLConfig) {
     this.config = config;
+  }
+  update(data: UpdateAppointmentDTO): Promise<void> {
+    throw new Error("Method not implemented.");
+  }
+  get(id: string): Promise<AppointmentEntity[]> {
+    throw new Error("Method not implemented.");
   }
 
   async init() {
@@ -73,4 +81,7 @@ export class AppointmentRepositoryMySQL {
       this.close();
     }
   }
+
+
+  
 }

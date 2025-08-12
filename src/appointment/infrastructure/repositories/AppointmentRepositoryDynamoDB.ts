@@ -1,15 +1,16 @@
-import { DynamoDBDocumentClient, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { AppointmentEntity } from "../../domain/entities/AppointmentEntity";
 import {IAppointmentRepository} from "../../domain/repositories/AppointmentRepository";
+import { UpdateAppointmentDTO } from "../../application/dtos/UpdateAppointmentDto";
 
-export class AppointmentRepository implements IAppointmentRepository{
+export class AppointmentRepositoryDynamoDB implements IAppointmentRepository{
   constructor() {
     if (!process.env.APPOINTMENTS_TABLE) {
       throw new Error("APPOINTMENTS_TABLE environment variable is not set");
     }
   }
-
+  
   private client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
   private table = process.env.APPOINTMENTS_TABLE;
 
@@ -34,12 +35,12 @@ export class AppointmentRepository implements IAppointmentRepository{
    * @param insuredId Código del asegurado
    * @returns Array de citas médicas
    */
-  async getByInsuredId(insuredId: string): Promise<AppointmentEntity[]> {
+  async get(id: string): Promise<AppointmentEntity[]> {
     const params = {
       TableName: this.table,
       KeyConditionExpression: "PK = :pk AND begins_with(SK, :sk)",
       ExpressionAttributeValues: {
-        ":pk": `INSURED#${insuredId}`,
+        ":pk": `INSURED#${id}`,
         ":sk": "APPOINTMENT#"
       },
       ScanIndexForward: false
@@ -57,5 +58,21 @@ export class AppointmentRepository implements IAppointmentRepository{
       state: item.state,
       countryISO: item.countryISO
     }));
+  }
+
+  /*
+   * Actualiza la cita de un asegurado
+   */
+  async update(data: UpdateAppointmentDTO): Promise<void> {
+
+    const params = {
+      TableName: this.table,
+      Key: { PK: { S: `INSURED#${data.insuredId}` }, SK: { S: `APPOINTMENT#${data.appointmentId}` } },
+      UpdateExpression: "SET #state = :newState",
+      ExpressionAttributeNames: { "#state": "state" },
+      ExpressionAttributeValues: { ":newState": { S: "completed" } }
+    };
+    
+    await this.client.send(new UpdateCommand(params));
   }
 }

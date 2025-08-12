@@ -1,4 +1,4 @@
-import { AppointmentRepository } from "../repositories/AppointmentRepositoryImpl";
+import { AppointmentRepositoryDynamoDB } from "../repositories/AppointmentRepositoryDynamoDB";
 import { CreateAppointmentUseCase } from "../../application/useCases/CreateAppointmentUseCase";
 import { GetAppointmentsByInsuredIdUseCase } from "../../application/useCases/GetAppointmentsByInsuredIdUseCase";
 import { APIGatewayProxyHandler } from "aws-lambda";
@@ -10,7 +10,7 @@ export class AppointmentController {
   private getAppointmentsByInsuredId: GetAppointmentsByInsuredIdUseCase;
 
   constructor(
-      private appointmentRepository: IAppointmentRepository = new AppointmentRepository()
+      private appointmentRepository: IAppointmentRepository = new AppointmentRepositoryDynamoDB()
   ) {
     const snsTopicArn = process.env.SNS_TOPIC_ARN!;
     const snsPublisher = new SNSPublisher(snsTopicArn);

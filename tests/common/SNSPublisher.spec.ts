@@ -29,8 +29,11 @@ describe("SNSPublisher", () => {
     const appointment = {
       appointmentId: "A1",
       insuredId: "12345",
+      doctorId: "M001",
+      medicalCenterId: "C001",
+      specialtyId: "S001",
       countryISO: "PE",
-      data: "test-data"
+      date: "2024-09-10T12:00:00Z"
     };
     await publisher.publishAppointment(appointment);
 
@@ -48,7 +51,15 @@ describe("SNSPublisher", () => {
   it("propaga error si SNS falla", async () => {
     sendMock.mockRejectedValueOnce(new Error("SNS Error"));
     await expect(
-      publisher.publishAppointment({ appointmentId: "A2", countryISO: "CL" })
+      publisher.publishAppointment({
+        appointmentId: "A1",
+        insuredId: "12345",
+        doctorId: "M001",
+        medicalCenterId: "C001",
+        specialtyId: "S001",
+        countryISO: "PE",
+        date: "2024-09-10T12:00:00Z"
+      })
     ).rejects.toThrow("SNS Error");
   });
 });

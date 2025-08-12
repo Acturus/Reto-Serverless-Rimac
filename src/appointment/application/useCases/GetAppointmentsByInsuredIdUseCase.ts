@@ -21,6 +21,6 @@ export class GetAppointmentsByInsuredIdUseCase {
    */
   async execute(insuredId: string): Promise<AppointmentEntity[]> {
     this.validateInsuredId(insuredId);
-    return await this.repo.getByInsuredId(insuredId);
+    return await this.repo.get(insuredId);
   }
 }

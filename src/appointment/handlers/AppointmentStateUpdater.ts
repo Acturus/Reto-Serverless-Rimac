@@ -1,5 +1,6 @@
 import { SQSHandler } from "aws-lambda";
-import { DynamoDBClient, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
+import { UpdateAppointmentUseCase } from "../application/useCases/UpdateAppointmentUseCase";
+import { AppointmentRepositoryDynamoDB } from "../infrastructure/repositories/AppointmentRepositoryDynamoDB";
 
 export const handler: SQSHandler = async (event) => {
 
@@ -7,12 +8,11 @@ export const handler: SQSHandler = async (event) => {
     throw new Error("APPOINTMENTS_TABLE environment variable is not set");
   }
 
-  const ddb = new DynamoDBClient({});
-
+  const repo = new AppointmentRepositoryDynamoDB();
   const delay = Number(process.env.STATE_UPDATE_DELAY_SECONDS) || 0;
   const lambda_timeout = Number(process.env.STATE_UPDATE_LAMBDA_TIMEOUT) || 0;
 
-  const APPOINTMENTS_TABLE = process.env.APPOINTMENTS_TABLE;
+  const updateUseCase = new UpdateAppointmentUseCase(repo);
 
   for (const record of event.Records) {
 
@@ -24,13 +24,8 @@ export const handler: SQSHandler = async (event) => {
         await new Promise(res => setTimeout(res, delay*1000));
       }
 
-      await ddb.send(new UpdateItemCommand({
-        TableName: APPOINTMENTS_TABLE,
-        Key: { PK: { S: `INSURED#${detail.insuredId}` }, SK: { S: `APPOINTMENT#${detail.appointmentId}` } },
-        UpdateExpression: "SET #state = :newState",
-        ExpressionAttributeNames: { "#state": "state" },
-        ExpressionAttributeValues: { ":newState": { S: "completed" } }
-      }));
+      await updateUseCase.execute(detail);
+      
     } catch (err) {
       console.error("Error processing record:", err);
     }

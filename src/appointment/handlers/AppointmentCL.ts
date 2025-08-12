@@ -1,6 +1,7 @@
 import { SQSHandler } from "aws-lambda";
 import { AppointmentRepositoryMySQL } from "../infrastructure/repositories/AppointmentRepositoryMySQL";
 import { EventBridgeClient, PutEventsCommand } from "@aws-sdk/client-eventbridge";
+import { StoreAppointmentUseCase } from "../application/useCases/StoreAppointmentUseCase";
 
 export const handler: SQSHandler = async (event) => {
 
@@ -20,6 +21,8 @@ export const handler: SQSHandler = async (event) => {
     database: process.env.MYSQL_DB,
   });
 
+  const storeUseCase = new StoreAppointmentUseCase(repository);
+
   const eventBridge = new EventBridgeClient({});
 
   for (const record of event.Records) {
@@ -28,7 +31,7 @@ export const handler: SQSHandler = async (event) => {
     const appointment = JSON.parse(snsEvent.Message);
   
     try {
-      await repository.save(appointment);
+      await storeUseCase.execute(appointment);
     } catch (error) {
       console.error("Error saving appointment:", error);
       throw error;

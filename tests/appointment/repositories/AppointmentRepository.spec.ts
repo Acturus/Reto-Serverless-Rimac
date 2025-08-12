@@ -1,4 +1,4 @@
-import { AppointmentRepository } from "../../../src/appointment/infrastructure/repositories/AppointmentRepositoryImpl";
+import { AppointmentRepositoryDynamoDB } from "../../../src/appointment/infrastructure/repositories/AppointmentRepositoryDynamoDB";
 import { AppointmentEntity } from "../../../src/appointment/domain/entities/AppointmentEntity";
 
 // Mock de DynamoDBDocumentClient y comandos
@@ -28,11 +28,11 @@ jest.mock("@aws-sdk/client-dynamodb", () => ({
 process.env.APPOINTMENTS_TABLE = "test-table";
 
 describe("AppointmentRepository", () => {
-  let repo: AppointmentRepository;
+  let repo: AppointmentRepositoryDynamoDB;
 
   beforeEach(() => {
     sendMock.mockReset();
-    repo = new AppointmentRepository();
+    repo = new AppointmentRepositoryDynamoDB();
   });
 
   it("guarda una cita usando PutCommand correctamente", async () => {
@@ -73,7 +73,7 @@ describe("AppointmentRepository", () => {
       ]
     });
 
-    const result = await repo.getByInsuredId("12345");
+    const result = await repo.get("12345");
     expect(sendMock).toHaveBeenCalledTimes(1);
     expect(result).toHaveLength(1);
     expect(result[0]).toHaveProperty("appointmentId", "A1");
@@ -82,14 +82,14 @@ describe("AppointmentRepository", () => {
 
   it("retorna un array vacío si no hay citas", async () => {
     sendMock.mockResolvedValue({ Items: [] });
-    const result = await repo.getByInsuredId("99999");
+    const result = await repo.get("99999");
     expect(result).toEqual([]);
   });
 
   it("lanza error si la variable de entorno falta", () => {
     // Borramos la var antes de importar
     delete process.env.APPOINTMENTS_TABLE;
-    expect(() => new AppointmentRepository()).toThrow("APPOINTMENTS_TABLE environment variable is not set");
+    expect(() => new AppointmentRepositoryDynamoDB()).toThrow("APPOINTMENTS_TABLE environment variable is not set");
     process.env.APPOINTMENTS_TABLE = "test-table"; // La reponemos para otros tests
   });
 
