@@ -8,5 +8,4 @@ export class UpdateAppointmentUseCase {
     execute(data: UpdateAppointmentDTO ): Promise<void> {
         return this.repo.update(data);
     }
-    
 }

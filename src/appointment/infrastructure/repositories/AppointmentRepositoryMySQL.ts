@@ -81,7 +81,4 @@ export class AppointmentRepositoryMySQL implements IAppointmentRepository {
       this.close();
     }
   }
-
-
-  
 }

@@ -1,6 +1,6 @@
-const API_BASE_URL = "https://9knrfdquid.execute-api.us-east-1.amazonaws.com";
-// La linea 1 se actualiza por la URL real de la API con el 
-// comando client:prepare o client:deploy del package.json
+const API_BASE_URL = "";
+// La linea 1 se actualiza por la URL real de la API
+// con el comando set:apiurl o los que lo invocan
 
 const today = new Date();
 
